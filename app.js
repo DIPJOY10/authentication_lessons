@@ -6,7 +6,9 @@ const mongoose=require('mongoose');
 const bodyParser=require('body-parser');
 const ejs=require('ejs');
 const encrypt=require('mongoose-encryption');
-const md5=require('md5');
+//const md5=require('md5');
+const bcrypt=require('bcrypt');
+const saltRounds=10;
 
 app.use(express.static("public"));
 app.set("view engine","ejs");
@@ -30,15 +32,18 @@ app.get("/register",function(req,res){
 });
 //level 1 security using basic registration
 app.post("/register",function(req,res){
-  const user=new User({
-    username:req.body.username,
-    password:md5(req.body.password) //level 3 security through hashing using md5
-  });
-  user.save(function(err){
-    if(err)
-    console.log(err);
-    else
-    res.render("secrets");
+  //level 4 through salting with saltrounds
+  bcrypt.hash(req.body.password,saltRounds,function(err,hash){
+    const user=new User({
+      username:req.body.username,
+      password:hash //level 3 with md5 converted to level 4 security using salting with bcrypt through hashing using md5
+    });
+    user.save(function(err){
+      if(err)
+      console.log(err);
+      else
+      res.render("secrets");
+    });
   });
 });
 
@@ -48,10 +53,12 @@ app.get("/login",function(req,res){
 app.post("/login",function(req,res){
   User.findOne({username:req.body.username},function(err,foundUser){
     if(foundUser){
-      if(foundUser.password===md5(req.body.password))
-      res.render("secrets");
-      else
-      res.send("wrong password");
+      bcrypt.compare(req.body.password,foundUser.password,function(err,result){
+        if(result===true)
+        res.render("secrets");
+        else
+        res.send("wrong password");
+      });
     }
     else
     res.send("no matching email found");
